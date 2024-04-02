@@ -172,4 +172,9 @@ dist
 .wrangler/
 
 # Rust
+
 target
+
+# Intellij
+
+.idea
