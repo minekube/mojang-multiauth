@@ -8,34 +8,35 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
-// Export a default object containing event handlers
+const authUrls = {
+	"mojang": "https://sessionserver.mojang.com/session/minecraft/hasJoined",
+	"minehut": "https://api.minehut.com/mitm/proxy/session/minecraft/hasJoined"
+};
+
 export default {
-	// The fetch handler is invoked when this worker receives a HTTP(S) request
-	// and should return a Response (optionally wrapped in a Promise)
+
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		// You'll find it helpful to parse the request.url string into a URL object. Learn more at https://developer.mozilla.org/en-US/docs/Web/API/URL
 		const url = new URL(request.url);
+		const pathname = url.pathname;
 
-		if(url.pathname != "/mitm/session/minecraft/hasJoined") return new Response();
+		if (!pathname.startsWith("/session/minecraft/hasJoined/")) return new Response(null, {status: 404});
 
-		console.log(url.href);
+		const splitPath = pathname.split("/");
 
+		for (const authProvider in authUrls) {
+			if (!splitPath.includes(authProvider)) continue;
+			// @ts-ignore - authProvider is of type string and not any
+			const authUrl = authUrls[authProvider];
+			const modifiedUrl = authUrl + url.search;
 
-		async function getAuthenticatedUser() {
-			const newURLList = ["https://sessionserver.mojang.com/session/minecraft/hasJoined", "https://api.minehut.com/mitm/proxy/session/minecraft/hasJoined"];
-			for (const newURL of newURLList) {
-				const newRequestURL = newURL + url.search;
-				const modifiedRequest = new Request(newRequestURL);
-				const response = await fetch(modifiedRequest);
-				if(response.status == 204) {
-					continue;
-				}
-				return response;
-			}
-			//return page with no content
-			return new Response(null, {status: 204});
+			const modifiedRequest = new Request(modifiedUrl);
+			const response = await fetch(modifiedRequest);
+
+			if (response.status != 200) continue;
+
+			return response;
 		}
 
-		return getAuthenticatedUser();
-	},
+		return new Response(null, {status: 204});
+	}
 };
